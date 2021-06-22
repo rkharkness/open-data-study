@@ -1,0 +1,6 @@
+model_checkpoint_path: "/MULTIX/DATA/HOME/covid-net/final2_saver_covid-net_model_k_1/model-20"
+all_model_checkpoint_paths: "/app/final2_saver_covid-net_model_k_1/model-5"
+all_model_checkpoint_paths: "/app/final2_saver_covid-net_model_k_1/model-7"
+all_model_checkpoint_paths: "/app/final2_saver_covid-net_model_k_1/model-8"
+all_model_checkpoint_paths: "/app/final2_saver_covid-net_model_k_1/model-9"
+all_model_checkpoint_paths: "/MULTIX/DATA/HOME/covid-net/final2_saver_covid-net_model_k_1/model-20"

@@ -1,3 +1,5 @@
+"""code adapted from: https://github.com/chirag126/CoroNet"""
+
 # import required libraries
 import os
 import cv2
@@ -182,25 +184,19 @@ def make_generators(train_df, val_df):
     train_df = train_df.reset_index(drop=True)
     val_df = val_df.reset_index(drop=True)
 
-    train_transform = A.Compose(
+    transform = A.Compose(
         [
         ToTensorV2()
         ]
     )
 
-    test_transform = A.Compose(
-        [
-          ToTensorV2()
-        ]
-    )
-
     seed = 0
-    train_data = CustomTensorDataset(train_df, transform=train_transform)
+    train_data = CustomTensorDataset(train_df, transform=transform)
     train_loader = DataLoader(train_data, batch_size=1, num_workers=4,
                               pin_memory=True, shuffle=True, 
                               worker_init_fn=np.random.seed(seed))
 
-    val_data = CustomTensorDataset(val_df, transform=test_transform)
+    val_data = CustomTensorDataset(val_df, transform=transform)
     valid_loader = DataLoader(val_data, batch_size=1, num_workers=4,
                               pin_memory=True, shuffle=True, 
                               worker_init_fn=np.random.seed(seed))
@@ -337,73 +333,69 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', default='/root/my-repo/data/', type=str, help='Path to data folder')
     args = parser.parse_args()
 
-total_data = pd.read_csv(args.data_csv)
-total_data['pneumonia_binary'] = total_data['finding'].replace(mapping) 
-total_data['class_map'] = total_data['pneumonia_binary']
+    total_data = pd.read_csv(args.data_csv)
+    total_data['pneumonia_binary'] = total_data['finding'].replace(mapping) 
+    total_data['class_map'] = total_data['pneumonia_binary']
 
-print(total_data.pneumonia_binary.unique())
-total_data.filename = [i.split('/')[4:] for i in total_data.filename] # change according to number of dir in full path
-total_data.filename = [args.data_dir  + '/'.join(i) for i in total_data.filename]
+    total_data.filename = [i.split('/')[4:] for i in total_data.filename] # change according to number of dir in full path
+    total_data.filename = [args.data_dir  + '/'.join(i) for i in total_data.filename]
 
-train_df = total_data[total_data['split']=='train']
-train_df = train_df.reset_index(drop=True)
-test_df = total_data[total_data['split']=='test']
-test_df = test_df.reset_index(drop=True)
+    train_df = total_data[total_data['split']=='train']
+    train_df = train_df.reset_index(drop=True)
 
-mse_loss = nn.MSELoss()
+    mse_loss = nn.MSELoss()
 
-seed = 0
-np.random.seed(seed)
-kfold = StratifiedKFold(n_splits=3, shuffle=True, random_state=seed)
-target = train_df.class_map
+    seed = 0
+    np.random.seed(seed)
 
-training_times = []
+    kfold = StratifiedKFold(n_splits=3, shuffle=True, random_state=seed)
+    target = train_df.class_map
 
-fold_no = 1
-for train_idx, val_idx in kfold.split(train_df, target):
-    train_kfold = train_df.iloc[train_idx]
-    val_kfold = train_df.iloc[val_idx]
+    fold_no = 1
 
-    train_loader, valid_loader = make_generators(train_kfold, val_kfold)
+    # get indices for 3-fold cross validation
+    for train_idx, val_idx in kfold.split(train_df, target):
+        train_kfold = train_df.iloc[train_idx]
+        val_kfold = train_df.iloc[val_idx]
 
-    print('------------------------------------------------------------------------')
-    # Training and testing the model on normal
-    model = FPN_Gray()
-    model.to('cuda')
+        train_loader, valid_loader = make_generators(train_kfold, val_kfold)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-3)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,  mode='min', factor=0.9, patience=5, threshold=1e-10, 
-                                                       threshold_mode='rel', cooldown=0, min_lr=1e-10, eps=1e-08, verbose=True)
-    filepath = '/app/' + get_model_name(fold_no, label=0)
-    print(f'Training for fold {fold_no} ...')
+        print('------------------------------------------------------------------------')
 
-    start_time = time.time()
+        # Training and testing the model on normal image data
+        model = FPN_Gray()
+        model.to('cuda')
 
-    model1, train_loss_list, val_loss_list = train(num_epoch=1000, train_loader=train_loader, model=model, optimizer=optimizer, scheduler=scheduler, seed=seed, mse_loss=mse_loss, label=0)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-3)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,  mode='min', factor=0.9, patience=5, threshold=1e-10, 
+                                                           threshold_mode='rel', cooldown=0, min_lr=1e-10, eps=1e-08, verbose=True)
+        filepath = '/app/' + get_model_name(fold_no, label=0)
+        print(f'Training for fold {fold_no} ...')
 
-    print('## ===== Training finished for label 0 FPAE ===== ##')
-    print("--- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
 
-    training_times.append(time.time() - start_time)
+        model1, train_loss_list, val_loss_list = train(num_epoch=1000, train_loader=train_loader, model=model, optimizer=optimizer, scheduler=scheduler, seed=seed, mse_loss=mse_loss, label=0)
 
-    print('------------------------------------------------------------------------')
-     # Training and testing the model on non-pneumonia data
-    model = FPN_Gray()
-    model.to('cuda')
+        print('## ===== Training finished for label 0 FPAE ===== ##')
+        print("--- %s seconds ---" % (time.time() - start_time))
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-3)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,  mode='min', factor=0.9, patience=5, threshold=1e-10, 
-                                                       threshold_mode='rel', cooldown=0, min_lr=1e-10, eps=1e-08, verbose=True)
-    filepath = '/app/' + get_model_name(fold_no, label=1)
+        print('------------------------------------------------------------------------')
 
-    start_time = time.time()
+         # Training and testing the model on non-COVID pneumonia data
+        model = FPN_Gray()
+        model.to('cuda')
 
-    model2, train_loss_list, val_loss_list = train(num_epoch=1000, train_loader=train_loader, model=model, optimizer=optimizer, scheduler=scheduler, seed=seed, mse_loss=mse_loss, label=1)
-    print('## ===== Training finished for label 1 FPAE ===== ##')
-    print("--- %s seconds ---" % (time.time() - start_time))
-    training_times.append(time.time() - start_time)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-3)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,  mode='min', factor=0.9, patience=5, threshold=1e-10, 
+                                                           threshold_mode='rel', cooldown=0, min_lr=1e-10, eps=1e-08, verbose=True)
+        filepath = '/app/' + get_model_name(fold_no, label=1)
+
+        start_time = time.time()
+
+        model2, train_loss_list, val_loss_list = train(num_epoch=1000, train_loader=train_loader, model=model, optimizer=optimizer, scheduler=scheduler, seed=seed, mse_loss=mse_loss, label=1)
+        print('## ===== Training finished for label 1 FPAE ===== ##')
+        print("--- %s seconds ---" % (time.time() - start_time))
 
 
-
-    fold_no = fold_no + 1
+        fold_no = fold_no + 1
 

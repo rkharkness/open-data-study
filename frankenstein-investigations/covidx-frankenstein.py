@@ -25,6 +25,7 @@ from sklearn.model_selection import KFold
 from sklearn.model_selection import StratifiedKFold
 
 
+
 class CustomTensorDataset(Dataset):
 
 	"""TensorDataset with support of transforms."""
@@ -34,11 +35,13 @@ class CustomTensorDataset(Dataset):
 		self.transform = transform
 
 	def __getitem__(self, index):
-		img = self.df.path[index]
-		print(img)
+		img = os.path.join('/home/ubuntu/frankenstein_data', self.df.split[index], self.df.img[index])
 		x = cv2.imread(img)
 
 		x = self.transform(image=x)["image"]
+		x = x/255.0
+
+		x = covid
 		y = torch.tensor(self.df.source_map[index])
 
 		return x/255.0, y
@@ -53,13 +56,13 @@ def make_generators(train_df, val_df, test_df, seed):
 
     transform = A.Compose(
         [
-          A.Resize(224,224),
+          A.Resize(480,480),
           ToTensorV2()
         ]
     )
 
     train_data = CustomTensorDataset(train_df, transform=transform)
-    train_loader = DataLoader(train_data, batch_size=24, num_workers=0,
+    train_loader = DataLoader(train_data, batch_size=24, num_workers=2,
                               pin_memory=True, shuffle=True, 
                               worker_init_fn=np.random.seed(seed))
 
@@ -69,7 +72,7 @@ def make_generators(train_df, val_df, test_df, seed):
                               worker_init_fn=np.random.seed(seed))
 
     test_data =CustomTensorDataset(test_df, transform=transform)
-    test_loader = DataLoader(test_data, batch_size=8, num_workers=0,
+    test_loader = DataLoader(test_data, batch_size=1, num_workers=0,
                               pin_memory=True, shuffle=True, 
                               worker_init_fn=np.random.seed(seed))
 
@@ -141,9 +144,9 @@ def validate_classifier(loss_fn, classifier):
     return np.mean(loss_list), val_correct
 
 def save_classification_model(model, epoch, k):
-    torch.save(model.state_dict(), "/app/source_classifier_k-{}.pth".format(k))
+    torch.save(model.state_dict(), "/home/ubuntu/frankenstein_dcnn_k-{}.pth".format(k))
 
-def train_classifier(num_epoch, train_loader, valid_loader, classifier, optimizer, loss_fn, scheduler, k, patience=20):
+def train_classifier(num_epoch, train_loader, valid_loader, classifier, optimizer, loss_fn, scheduler, k, patience=10):
 	# Training
 	epoch = 0
 	best_acc = 0
@@ -222,13 +225,18 @@ if __name__ == '__main__':
 	
 	num_epoch = 1000 
 
-	total_data = pd.read_csv('/app/full_covidx_data2.csv')
+	total_data = pd.read_csv('/MULTIX/DATA/HOME/frankenstein_data.csv')
+
+	mapping = {'rsna':0, 'sirm':1, 'ricord':2,'cohen':3}
+	total_data['source_map'] = total_data['source'].map(mapping)
+
+	print(total_data['source_map'].value_counts())
 	train_df = total_data[total_data['source_split']=='train']
 	test_df = total_data[total_data['source_split']=='test']
 
 	seed = 0
 	np.random.seed(seed)
-	kfold = StratifiedKFold(n_splits=3, shuffle=True, random_state=seed)
+	kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
 	target = train_df.source_map
 
 	# compute class weights to account for class imbalances  in data
@@ -252,7 +260,7 @@ if __name__ == '__main__':
         
 		nll_loss = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float), reduction='sum').to('cuda') # changed to being unweighted - dataset now balanced
 		optimizer = torch.optim.Adam(classifier.parameters(), lr=1e-4, weight_decay=1e-3)
-		scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,  mode='min', factor=0.9, patience=10, threshold=0.00001, 
+		scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,  mode='min', factor=0.9, patience=5, threshold=0.00001, 
                                                            threshold_mode='rel', cooldown=0, min_lr=1e-10, eps=1e-08, verbose=True)
 		classifier, epoch_losses, val_epoch_losses, epoch_acc, val_epoch_acc = train_classifier(num_epoch=num_epoch, train_loader=train_loader,valid_loader=valid_loader,
         	classifier=classifier, optimizer=optimizer, loss_fn=nll_loss, k=fold_no, scheduler=scheduler)

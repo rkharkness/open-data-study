@@ -1,6 +1,8 @@
 # The pitfalls of using open data to develop deep learning solutions for COVID-19 detection in chest X-rays
 
-**This repository contains the source code requierd to reproduce the main results presented in our paper: Harkness, R., Ravikumar, N., Zucker, K. The pitfalls of using open data to develop deep learning solutions for COVID-19 detection**
+**This repository contains the source code requierd to reproduce the main results presented in our paper: 
+
+Harkness, R., Ravikumar, N., Zucker, K. [The pitfalls of using open data to develop deep learning solutions for COVID-19 detection](https://arxiv.org/ftp/arxiv/papers/2109/2109.08020.pdf)**
 
 Since the emergence of COVID-19, deep learning models have been developed to identify COVID-19 from chest X-rays. With little to no direct access to hospital data, the AI community relies heavily on public data comprising numerous data sources. Model performance results have been exceptional when training and testing on open-source data, surpassing the reported capabilities of AI in pneumonia-detection prior to the COVID-19 outbreak. In this study impactful models are trained on a widely used open-source data and tested on an external test set and a hospital dataset, for the task of classifying chest X-rays into one of three classes: COVID-19, non-COVID pneumonia and no-pneumonia. Data analysis and model evalutions show that the popular open-source dataset COVIDx is not representative of the real clinical problem andthat results from testing on this are inflated. Dependence on open-source data can leave models vulnerable to bias and confounding variables, requiring careful analysis to developclinically useful/viable AI tools for COVID-19 detection in chest X-rays.
 
@@ -47,7 +49,7 @@ We also use t-SNE to present the 2D projection of the features learned by our de
 <p align="center">
   <img src="https://github.com/rkharkness/open-data-study/blob/master/assets/frankenstein-tsne-plot.png">
   <i>
-    2D t-SNE projection of hidden features extracted from the trained Deep CNN ’Frankenstein’classifier during inference.
+    2D t-SNE projection of hidden features extracted from the trained Deep CNN ’Frankenstein’ classifier during inference.
   </i>
 </p>
 
